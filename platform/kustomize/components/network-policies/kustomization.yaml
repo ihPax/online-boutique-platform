@@ -1,0 +1,8 @@
+# Riusa le NetworkPolicy upstream (deny-all + una policy per servizio) e
+# sostituisce quella del frontend, che upstream lascia aperta a tutto.
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+components:
+  - ../../../../kustomize/components/network-policies
+patches:
+  - path: frontend.yaml

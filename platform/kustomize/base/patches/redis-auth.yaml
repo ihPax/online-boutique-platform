@@ -1,0 +1,22 @@
+# Redis con password. Il Secret "redis-auth" NON è nel repo: lo crea
+# scripts/create-secrets.sh (vedi docs/runbook.md, "Secret").
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis-cart
+spec:
+  template:
+    spec:
+      serviceAccountName: redis-cart
+      containers:
+        - name: redis
+          args:
+            - redis-server
+            - --requirepass
+            - $(REDIS_PASSWORD)
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: redis-auth
+                  key: password

@@ -1,0 +1,36 @@
+# Frontend: porta metriche separata (9090, non esposta dall'Ingress),
+# livello di log configurabile per ambiente.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  template:
+    metadata:
+      annotations:
+        kubectl.kubernetes.io/default-container: server
+    spec:
+      containers:
+        - name: server
+          ports:
+            - name: http
+              containerPort: 8080
+            - name: metrics
+              containerPort: 9090
+          env:
+            - name: ENV_PLATFORM
+              value: onprem
+            - name: LOG_LEVEL
+              value: debug
+            - name: METRICS_PORT
+              value: "9090"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+spec:
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: 9090

@@ -1,0 +1,26 @@
+# Unico punto di ingresso esterno. Host e TLS vengono impostati dagli overlay.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: frontend
+  labels:
+    app: frontend
+  annotations:
+    cert-manager.io/cluster-issuer: selfsigned-cluster-issuer
+spec:
+  ingressClassName: traefik
+  tls:
+    - hosts:
+        - boutique.example.local
+      secretName: frontend-tls
+  rules:
+    - host: boutique.example.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  name: http

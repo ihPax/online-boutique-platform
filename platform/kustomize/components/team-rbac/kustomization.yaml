@@ -1,0 +1,6 @@
+# Accesso del team applicativo (gruppo "boutique-team"): sola lettura e log.
+# Gli overlay possono aggiungere permessi (dev) o lasciarlo così (prod).
+apiVersion: kustomize.config.k8s.io/v1alpha1
+kind: Component
+resources:
+  - role-viewer.yaml

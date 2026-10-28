@@ -1,0 +1,16 @@
+[
+  {
+    "op": "replace",
+    "path": "/spec/template/spec/containers/0/env",
+    "value": [
+      {
+        "name": "REDIS_PASSWORD",
+        "valueFrom": { "secretKeyRef": { "name": "redis-auth", "key": "password" } }
+      },
+      {
+        "name": "REDIS_ADDR",
+        "value": "redis-cart:6379,password=$(REDIS_PASSWORD)"
+      }
+    ]
+  }
+]

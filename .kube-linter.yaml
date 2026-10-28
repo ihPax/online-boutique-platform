@@ -1,0 +1,18 @@
+# kube-linter: check scelti per la challenge. Le probe le controlla
+# scripts/policy-check.sh, che sa escludere il loadgenerator (client senza porte).
+checks:
+  addAllBuiltIn: false
+  include:
+    - no-read-only-root-fs
+    - run-as-non-root
+    - privilege-escalation-container
+    - drop-net-raw-capability
+    - latest-tag
+    - unset-cpu-requirements
+    - unset-memory-requirements
+    - pdb-unhealthy-pod-eviction-policy
+    - access-to-secrets
+    - access-to-create-pods
+    - wildcard-in-rules
+    - default-service-account
+    - non-isolated-pod

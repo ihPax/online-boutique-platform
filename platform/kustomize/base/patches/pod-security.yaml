@@ -1,0 +1,14 @@
+# Applicata a tutti i Deployment. Upstream ha già runAsNonRoot, drop ALL e
+# readOnlyRootFilesystem; manca il seccompProfile richiesto da PSA "restricted".
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: all
+spec:
+  revisionHistoryLimit: 5
+  template:
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        seccompProfile:
+          type: RuntimeDefault

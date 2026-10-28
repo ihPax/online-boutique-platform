@@ -1,0 +1,42 @@
+# Base della piattaforma: parte dalla base Kustomize upstream (non modificata)
+# e aggiunge hardening, ingress, auth su Redis e metriche del frontend.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../kustomize/base
+  - redis-serviceaccount.yaml
+  - ingress.yaml
+
+components:
+  # Rimuove il Service LoadBalancer "frontend-external": si entra solo dall'Ingress.
+  - ../../../kustomize/components/non-public-frontend
+  # Default deny + policy per servizio (upstream) e override per frontend.
+  - ../components/network-policies
+
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: online-boutique
+    includeSelectors: false
+    includeTemplates: true
+
+images:
+  # Redis upstream usa "redis:alpine" (floating): fisso la minor.
+  - name: redis
+    newTag: 7.4-alpine
+
+patches:
+  # Hardening comune a tutti i Deployment (PSA "restricted").
+  - path: patches/pod-security.yaml
+    target:
+      kind: Deployment
+  # Nessun workload usa le API Kubernetes: niente token montato.
+  - path: patches/serviceaccount-no-token.yaml
+    target:
+      kind: ServiceAccount
+  - path: patches/frontend.yaml
+  - path: patches/redis-auth.yaml
+  - path: patches/cartservice-redis-auth.json
+    target:
+      kind: Deployment
+      name: cartservice

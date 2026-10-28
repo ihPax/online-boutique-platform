@@ -1,0 +1,29 @@
+# Traffico leggero ma costante: tiene vive metriche e dashboard durante la demo.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: loadgenerator
+spec:
+  template:
+    spec:
+      containers:
+        - name: main
+          env:
+            - name: USERS
+              value: "3"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 300m
+              memory: 384Mi
+      initContainers:
+        - name: frontend-check
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
