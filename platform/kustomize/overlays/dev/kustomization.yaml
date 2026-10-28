@@ -36,4 +36,4 @@ patches:
 images:
 - name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend
   newName: ghcr.io/ihpax/online-boutique-platform/frontend
-  newTag: sha-nonexist
+  newTag: sha-a1b745d
