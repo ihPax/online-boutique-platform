@@ -1,0 +1,40 @@
+# Promozione manuale: copia in prod il tag del frontend attualmente in dev
+# e apre una PR. Il merge (revisionato) è il gate verso produzione.
+name: promote-to-prod
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Copy frontend image from dev to prod
+        id: promote
+        run: |
+          set -euo pipefail
+          curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv5.8.3/kustomize_v5.8.3_linux_amd64.tar.gz" | tar xz -C "$RUNNER_TEMP" && export PATH="$RUNNER_TEMP:$PATH"
+          img="$(yq '.images[] | select(.name == "*frontend") | .newName + ":" + .newTag' platform/kustomize/overlays/dev/kustomization.yaml)"
+          echo "Promoting ${img}"
+          cd platform/kustomize/overlays/prod
+          kustomize edit set image "us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend=${img}"
+          echo "image=${img}" >> "$GITHUB_OUTPUT"
+
+      - uses: peter-evans/create-pull-request@v8
+        with:
+          branch: promote/frontend
+          title: "deploy(prod): frontend ${{ steps.promote.outputs.image }}"
+          commit-message: "deploy(prod): frontend ${{ steps.promote.outputs.image }}"
+          body: |
+            Promozione in prod dell'immagine frontend già in esercizio in dev.
+
+            Checklist prima del merge:
+            - [ ] `online-boutique-dev` Synced/Healthy in Argo CD
+            - [ ] nessun alert attivo su boutique-dev
+            - [ ] smoke test dev ok (`scripts/smoke-test.sh boutique-dev`)

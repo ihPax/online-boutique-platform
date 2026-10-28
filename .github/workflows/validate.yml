@@ -1,0 +1,84 @@
+# Validazione su ogni push e PR: manifest renderizzati, schema, best practice,
+# chart Krateo e codice del frontend. Nessuna credenziale verso il cluster:
+# il deploy lo fa Argo CD in pull.
+name: validate
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  KUSTOMIZE_VERSION: "5.8.3"
+  KUBECONFORM_VERSION: "0.8.0"
+  KUBE_LINTER_VERSION: "0.8.3"
+  K8S_VERSION: "1.33.0"
+
+jobs:
+  manifests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install tools
+        run: |
+          set -euo pipefail
+          mkdir -p "$HOME/bin" && echo "$HOME/bin" >> "$GITHUB_PATH"
+          curl -sSL "https://github.com/kubernetes-sigs/kustomize/releases/download/kustomize%2Fv${KUSTOMIZE_VERSION}/kustomize_v${KUSTOMIZE_VERSION}_linux_amd64.tar.gz" | tar xz -C "$HOME/bin"
+          curl -sSL "https://github.com/yannh/kubeconform/releases/download/v${KUBECONFORM_VERSION}/kubeconform-linux-amd64.tar.gz" | tar xz -C "$HOME/bin" kubeconform
+          curl -sSL "https://github.com/stackrox/kube-linter/releases/download/v${KUBE_LINTER_VERSION}/kube-linter-linux.tar.gz" | tar xz -C "$HOME/bin"
+
+      - name: Render
+        run: scripts/render.sh rendered
+
+      - name: Schema validation (kubeconform)
+        run: |
+          kubeconform -strict -summary -output pretty \
+            -kubernetes-version "$K8S_VERSION" \
+            -schema-location default \
+            -schema-location 'https://raw.githubusercontent.com/datreeio/CRDs-catalog/main/{{.Group}}/{{.ResourceKind}}_{{.ResourceAPIVersion}}.json' \
+            rendered/*.yaml
+
+      - name: Best practice (kube-linter)
+        run: kube-linter lint --config .kube-linter.yaml rendered/dev.yaml rendered/prod.yaml
+
+      - name: Policy check (no :latest, PSA labels, risorse)
+        run: scripts/policy-check.sh rendered
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: rendered-manifests
+          path: rendered/
+
+  krateo-blueprint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: azure/setup-helm@v5
+      - name: Lint and template
+        run: |
+          helm lint platform/krateo/blueprint
+          helm template demo platform/krateo/blueprint -f platform/krateo/blueprint/ci/values-example.yaml > /dev/null
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: src/frontend/go.mod
+          cache-dependency-path: src/frontend/go.sum
+      # copylocks escluso: avvisi preesistenti nel codice upstream (genproto.Money).
+      - run: go vet -copylocks=false ./...
+      - run: go test ./...
+      - run: go build -o /dev/null .
+      - uses: hadolint/hadolint-action@v3.5.0
+        with:
+          dockerfile: src/frontend/Dockerfile
+          failure-threshold: error
