@@ -74,7 +74,7 @@ Volutamente **non** esposti: immagini (le decide la CI), risorse dei singoli con
 |---|---|---|
 | **Blueprint** (chart Helm + schema) | Fatto e validato in CI: `helm lint`, `helm template`, kubeconform sull'Application, schema che rifiuta valori fuori enum/pattern | Il golden path è definibile e vincolabile anche senza Krateo |
 | **Simulazione** dell'istanza | Verificato in locale: l'overlay con namespace, label e patch del blueprint produce l'ambiente atteso (`kustomize build`) | Parametri e patch sono corretti |
-| **PoC Krateo** (`scripts/krateo-poc.sh`) | Script pronto: installa solo core-provider, registra la definizione (chart scaricato da `platform/krateo/dist/`), crea l'istanza `team-a`. **Da eseguire sul cluster** | Il passaggio chart → CRD → Application funziona end-to-end |
+| **PoC Krateo** (`scripts/krateo-poc.sh`) | **Eseguita** sul k3s il 28/10/2026: core-provider 1.0.0, CRD `OnlineBoutiqueEnv` v0-1-0 generata, istanza `team-a` → Application → ambiente `boutique-team-a` con 12 servizi | Il passaggio chart → CRD → Application funziona end-to-end |
 | **Adozione reale** | Non fatta | Vedi prerequisiti e rischi |
 
 ## Benefici
@@ -120,4 +120,4 @@ scripts/krateo-poc.sh --cleanup      # rimuove tutto
 
 Accorgimento emerso preparando la PoC: il controller di Krateo passa al chart alcuni valori propri sotto `global`. Lo schema del blueprint rifiuta i campi non previsti, quindi `global` è dichiarato esplicitamente; senza, l'installazione fallirebbe alla validazione di Helm.
 
-Da verificare durante l'esecuzione: permessi generati per il controller (deve poter creare Application nel namespace `argocd`) e tempi di creazione della CRD.
+Emersi eseguendo la PoC: core-provider richiede un limite inotify del nodo più alto del default di Ubuntu (128), altrimenti non parte (`too many open files`); il controller generato ha ricevuto da solo i permessi per creare l'Application in `argocd`; dalla definizione alla CRD pochi secondi.

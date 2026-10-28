@@ -142,6 +142,7 @@ kubectl -n $NS get pod <pod> -o jsonpath='{.status.containerStatuses[0].lastStat
 | `reason` / exit code | Significato | Azione |
 |---|---|---|
 | `OOMKilled` / 137 | Limite di memoria superato | Aumentare `limits.memory` in Git dopo aver guardato il trend in Grafana |
+| `Error` + log `too many open files` all'avvio di un controller | Limite inotify del nodo esaurito (default Ubuntu 128 istanze), tipico su nodi con molti pod o anche Docker | Contare le istanze (`sudo find /proc/*/fd -lname 'anon_inode:inotify' \| wc -l`); alzare `fs.inotify.max_user_instances` in `/etc/sysctl.d/` |
 | `Error` / 2 + `panic: environment variable "X" not set` | Variabile obbligatoria mancante (il frontend va in panic all'avvio) | Correggere l'overlay |
 | `Error` + `read-only file system` | Il processo scrive su disco con `readOnlyRootFilesystem` | Montare un `emptyDir` sul path, non togliere il vincolo |
 | Liveness killing | La liveness fallisce ripetutamente | `describe pod`; valutare `initialDelaySeconds` o una `startupProbe` |

@@ -73,8 +73,23 @@ Al primo deploy di dev e prod, `emailservice` è andato in `CrashLoopBackOff` in
 | Evidenze fornite all'AI (senza segreti) | `lastState.terminated` (`exitCode 137`, `reason: Error`), log del container precedente, eventi del pod (`failed liveness probe, will be restarted`; `failed to connect service ... within 1s`) |
 | Ipotesi proposte | 1) OOM; 2) NetworkPolicy che blocca la probe del kubelet; 3) avvio più lento della finestra concessa dalla liveness |
 | Verifica fatta | 137 senza `OOMKilled` esclude l'OOM (è il SIGKILL del kubelet). Gli altri servizi gRPC con le stesse NetworkPolicy passano le probe: esclusa la rete. Tempi: container avviato alle 13:19:45, log `listening on port: 8080` alle 13:20:01 (16 s), ucciso alle 13:20:02. La probe upstream (`periodSeconds: 5`, 3 fallimenti, nessun `initialDelaySeconds`, timeout 1 s) concede circa 15 s. In più 24 pod partivano insieme sotto il limite di 200m CPU |
-| Causa reale e correzione | Avvio lento sotto limite CPU. Aggiunta una `startupProbe` (fino a 2 minuti) e timeout di 3 s su liveness e readiness, come patch nella base (`patches/emailservice-probes.yaml`). Dopo il sync: nuovo pod 1/1, 0 restart; prod `Healthy` |
+| Causa reale e correzione | Avvio lento sotto limite CPU. Aggiunta una `startupProbe` (fino a 2 minuti) e timeout di 3 s su liveness e readiness, come patch nella base (`patches/python-services-probes.yaml`). Dopo il sync: nuovo pod 1/1, 0 restart; prod `Healthy` |
 | Valore | Causa isolata in pochi minuti ragionando sulle evidenze invece di provare a caso (es. alzare memoria o rimuovere la NetworkPolicy, che non avrebbero risolto). La correzione è minima, in Git e vale per entrambi gli ambienti |
+
+### Caso 3: core-provider di Krateo in CrashLoopBackOff (limite del nodo)
+
+| Campo | |
+|---|---|
+| Sintomo | `scripts/krateo-poc.sh` in timeout sulla `CompositionDefinition`; la risorsa non aveva né condizioni né eventi |
+| Evidenze | Nessuno stato sulla risorsa: il controller non la stava elaborando. Pod `krateo-core-provider` in `CrashLoopBackOff`; nei log `Cannot start controller manager: too many open files` |
+| Ipotesi | Limite di istanze inotify del kernel: controller-runtime le usa per osservare i certificati dei webhook, e sul nodo girano anche k3s, 3 ambienti e lo stack Docker dell'homelab |
+| Verifica fatta | `fs.inotify.max_user_instances` = 128 (default Ubuntu); istanze in uso contate in `/proc/*/fd`: 146 |
+| Causa reale e correzione | Limite del nodo, non di Krateo né del chart. `max_user_instances` = 1024 e `max_user_watches` = 524288 in `/etc/sysctl.d/99-inotify.conf` (persistente), riavvio di core-provider: CRD generata e istanza `Ready` |
+| Valore | Il sintomo era nel pod, la causa sul nodo condiviso con altri carichi. Senza la verifica sul conteggio si sarebbe potuto cercare a lungo nella configurazione di Krateo |
+
+### Caso 4: recommendationservice nell'ambiente creato da Krateo
+
+Stesso schema del caso 2 (exit 137, liveness fallita, `listening` 17 s dopo l'avvio) su `recommendationservice`, l'altro servizio Python, nel terzo ambiente. Con tre ambienti sullo stesso nodo il margine all'avvio si è ridotto. Correzione estesa a entrambi i servizi Python (`patches/python-services-probes.yaml`).
 
 ## 4. Documentazione e demo
 
@@ -105,7 +120,7 @@ Eseguite il 28/10/2026 sul k3s dell'homelab (single node, k3s v1.35, Traefik, ku
 | Scenari `cart-network` e `drift` | Da provare | |
 | `smoke-test.sh` prod | Da provare | |
 | `bootstrap-local.sh` su k3d | Da provare | |
-| PoC Krateo | Non eseguita | Valutazione e blueprint in [krateo.md](krateo.md) |
+| PoC Krateo | OK | core-provider 1.0.0; CRD `OnlineBoutiqueEnv` v0-1-0 generata dallo schema; istanza `team-a` → Application Argo CD → ambiente `boutique-team-a`. Prerequisito emerso: limite inotify del nodo (caso 3) |
 
 ## Limiti riscontrati
 

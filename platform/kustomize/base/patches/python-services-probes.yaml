@@ -1,0 +1,46 @@
+# I due servizi Python (emailservice, recommendationservice) impiegano 15-20s
+# ad avviarsi con il limite di 200m CPU, soprattutto quando molti pod partono
+# insieme. Upstream non ha né startupProbe né initialDelaySeconds: la liveness
+# (5s x 3 fallimenti) li uccide prima che ascoltino sulla porta (exit 137,
+# CrashLoopBackOff osservato su emailservice in prod e su recommendationservice
+# nell'ambiente creato da Krateo). La startupProbe concede fino a 2 minuti;
+# dopo, liveness e readiness restano quelle upstream con timeout di 3s.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emailservice
+spec:
+  template:
+    spec:
+      containers:
+        - name: server
+          startupProbe:
+            grpc:
+              port: 8080
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          livenessProbe:
+            timeoutSeconds: 3
+          readinessProbe:
+            timeoutSeconds: 3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: recommendationservice
+spec:
+  template:
+    spec:
+      containers:
+        - name: server
+          startupProbe:
+            grpc:
+              port: 8080
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          livenessProbe:
+            timeoutSeconds: 3
+          readinessProbe:
+            timeoutSeconds: 3
