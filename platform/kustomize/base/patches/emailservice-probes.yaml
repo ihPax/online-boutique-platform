@@ -1,0 +1,25 @@
+# emailservice (Python) impiega ~15-20s ad avviarsi con il limite di 200m CPU,
+# soprattutto quando molti pod partono insieme. Upstream non ha né startupProbe
+# né initialDelaySeconds: la liveness (5s x 3 fallimenti) lo uccide prima che
+# ascolti sulla porta (exit 137, CrashLoopBackOff osservato in boutique-prod).
+# La startupProbe gli concede fino a 2 minuti; dopo, liveness e readiness
+# restano quelle upstream con un timeout meno aggressivo.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: emailservice
+spec:
+  template:
+    spec:
+      containers:
+        - name: server
+          startupProbe:
+            grpc:
+              port: 8080
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 24
+          livenessProbe:
+            timeoutSeconds: 3
+          readinessProbe:
+            timeoutSeconds: 3

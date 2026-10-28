@@ -36,6 +36,7 @@ patches:
       kind: ServiceAccount
   - path: patches/frontend.yaml
   - path: patches/redis-auth.yaml
+  - path: patches/emailservice-probes.yaml
   - path: patches/cartservice-redis-auth.json
     target:
       kind: Deployment
