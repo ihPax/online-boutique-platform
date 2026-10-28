@@ -4,37 +4,36 @@ kind: Kustomization
 namespace: boutique-dev
 
 resources:
-  - namespace.yaml
-  - ../../base
-  - role-operator.yaml
+- namespace.yaml
+- ../../base
+- role-operator.yaml
 
 components:
-  - ../../components/guardrails
-  - ../../components/monitoring
-  - ../../components/team-rbac
+- ../../components/guardrails
+- ../../components/monitoring
+- ../../components/team-rbac
 
 labels:
-  - pairs:
-      app.kubernetes.io/environment: dev
-    includeSelectors: false
-    includeTemplates: true
+- includeTemplates: true
+  pairs:
+    app.kubernetes.io/environment: dev
 
 patches:
-  - path: frontend.yaml
-  - path: loadgenerator.yaml
-  - target:
-      kind: Ingress
-      name: frontend
-    patch: |-
-      - op: replace
-        path: /spec/rules/0/host
-        value: boutique-dev.homelab.local
-      - op: replace
-        path: /spec/tls/0/hosts/0
-        value: boutique-dev.homelab.local
+- path: frontend.yaml
+- path: loadgenerator.yaml
+- patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: boutique-dev.homelab.local
+    - op: replace
+      path: /spec/tls/0/hosts/0
+      value: boutique-dev.homelab.local
+  target:
+    kind: Ingress
+    name: frontend
 
 # Aggiornato dalla pipeline (build-frontend.yml) a ogni build su main.
 images:
-  - name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend
-    newName: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend
-    newTag: v0.10.7
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend
+  newName: ghcr.io/ihpax/online-boutique-platform/frontend
+  newTag: sha-a1b745d
