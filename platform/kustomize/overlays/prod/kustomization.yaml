@@ -4,50 +4,49 @@ kind: Kustomization
 namespace: boutique-prod
 
 resources:
-  - namespace.yaml
-  - ../../base
-  - frontend-hpa.yaml
-  - frontend-pdb.yaml
+- namespace.yaml
+- ../../base
+- frontend-hpa.yaml
+- frontend-pdb.yaml
 
-components:
-  - ../../components/guardrails
-  - ../../components/monitoring
-  - ../../components/team-rbac
   # In prod niente traffico sintetico.
-  - ../../../../kustomize/components/without-loadgenerator
+components:
+- ../../components/guardrails
+- ../../components/monitoring
+- ../../components/team-rbac
+- ../../../../kustomize/components/without-loadgenerator
 
 labels:
-  - pairs:
-      app.kubernetes.io/environment: prod
-    includeSelectors: false
-    includeTemplates: true
+- includeTemplates: true
+  pairs:
+    app.kubernetes.io/environment: prod
 
-patches:
-  - path: frontend.yaml
-  - path: resourcequota.yaml
-  - target:
-      kind: Ingress
-      name: frontend
-    patch: |-
-      - op: replace
-        path: /spec/rules/0/host
-        value: boutique.homelab.local
-      - op: replace
-        path: /spec/tls/0/hosts/0
-        value: boutique.homelab.local
   # Senza loadgenerator la sua NetworkPolicy upstream non serve.
-  - target:
-      kind: NetworkPolicy
+patches:
+- path: frontend.yaml
+- path: resourcequota.yaml
+- patch: |-
+    - op: replace
+      path: /spec/rules/0/host
+      value: boutique.homelab.local
+    - op: replace
+      path: /spec/tls/0/hosts/0
+      value: boutique.homelab.local
+  target:
+    kind: Ingress
+    name: frontend
+- patch: |-
+    $patch: delete
+    apiVersion: networking.k8s.io/v1
+    kind: NetworkPolicy
+    metadata:
       name: loadgenerator
-    patch: |-
-      $patch: delete
-      apiVersion: networking.k8s.io/v1
-      kind: NetworkPolicy
-      metadata:
-        name: loadgenerator
+  target:
+    kind: NetworkPolicy
+    name: loadgenerator
 
 # Promosso da dev tramite il workflow "promote-to-prod" (PR revisionata).
 images:
-  - name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend
-    newName: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend
-    newTag: v0.10.7
+- name: us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend
+  newName: ghcr.io/ihpax/online-boutique-platform/frontend
+  newTag: sha-a1b745d
