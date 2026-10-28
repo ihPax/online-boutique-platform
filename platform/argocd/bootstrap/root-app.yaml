@@ -1,0 +1,20 @@
+# Unico oggetto da creare a mano (o da aggiungere al repo homelab-gitops,
+# in argocd/applications/): porta dentro AppProject e Application di questo repo.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: online-boutique-root
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/ihPax/online-boutique-platform.git
+    targetRevision: main
+    path: platform/argocd
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true

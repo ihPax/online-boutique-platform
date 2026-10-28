@@ -1,0 +1,72 @@
+# Stessa nota del ServiceMonitor: la label "release" deve combaciare con il
+# ruleSelector del Prometheus.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: online-boutique
+  labels:
+    release: kube-prometheus-stack
+    app.kubernetes.io/part-of: online-boutique
+spec:
+  groups:
+    - name: online-boutique.frontend
+      rules:
+        - record: boutique:frontend_requests:rate5m
+          expr: sum by (namespace) (rate(frontend_http_requests_total[5m]))
+        - record: boutique:frontend_errors:ratio5m
+          expr: |
+            sum by (namespace) (rate(frontend_http_requests_total{code=~"5.."}[5m]))
+            /
+            sum by (namespace) (rate(frontend_http_requests_total[5m]))
+        - alert: BoutiqueFrontendHighErrorRate
+          expr: boutique:frontend_errors:ratio5m > 0.05
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Frontend {{ $labels.namespace }}: {{ $value | humanizePercentage }} di risposte 5xx"
+            runbook: docs/runbook.md#frontend-5xx
+        - alert: BoutiqueFrontendSlow
+          expr: |
+            histogram_quantile(0.95,
+              sum by (namespace, le) (rate(frontend_http_request_duration_seconds_bucket[5m]))) > 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Frontend {{ $labels.namespace }}: p95 sopra 1s ({{ $value | humanizeDuration }})"
+            runbook: docs/runbook.md#latenza
+        - alert: BoutiqueOrdersFailing
+          expr: sum by (namespace) (increase(frontend_orders_failed_total[10m])) > 0
+          labels:
+            severity: critical
+          annotations:
+            summary: "{{ $labels.namespace }}: ordini falliti negli ultimi 10 minuti"
+            runbook: docs/runbook.md#checkout
+        - alert: BoutiqueFrontendMetricsDown
+          expr: up{namespace=~"boutique-.*", service="frontend"} == 0
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}: Prometheus non riesce a fare scrape del frontend"
+            runbook: docs/runbook.md#metriche
+    - name: online-boutique.workloads
+      rules:
+        - alert: BoutiqueDeploymentUnavailable
+          expr: |
+            kube_deployment_status_replicas_available{namespace=~"boutique-.*"}
+              < kube_deployment_spec_replicas{namespace=~"boutique-.*"}
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.deployment }}: repliche disponibili sotto il desiderato"
+            runbook: docs/runbook.md#pod-non-ready
+        - alert: BoutiquePodRestarting
+          expr: increase(kube_pod_container_status_restarts_total{namespace=~"boutique-.*"}[10m]) > 2
+          labels:
+            severity: warning
+          annotations:
+            summary: "{{ $labels.namespace }}/{{ $labels.pod }}: più di 2 restart in 10 minuti"
+            runbook: docs/runbook.md#crashloopbackoff

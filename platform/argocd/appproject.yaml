@@ -1,0 +1,43 @@
+# Perimetro del progetto: un solo repo sorgente, solo i namespace dell'app
+# (più monitoring per dashboard e regole), solo i tipi di risorsa che servono.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: online-boutique
+spec:
+  description: Online Boutique - challenge L2
+  sourceRepos:
+    - https://github.com/ihPax/online-boutique-platform.git
+  destinations:
+    # boutique-dev, boutique-prod e gli ambienti creati in self-service (blueprint Krateo).
+    - server: https://kubernetes.default.svc
+      namespace: boutique-*
+    - server: https://kubernetes.default.svc
+      namespace: monitoring
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+  namespaceResourceWhitelist:
+    - { group: "", kind: ConfigMap }
+    - { group: "", kind: Service }
+    - { group: "", kind: ServiceAccount }
+    - { group: "", kind: LimitRange }
+    - { group: "", kind: ResourceQuota }
+    - { group: apps, kind: Deployment }
+    - { group: networking.k8s.io, kind: Ingress }
+    - { group: networking.k8s.io, kind: NetworkPolicy }
+    - { group: autoscaling, kind: HorizontalPodAutoscaler }
+    - { group: policy, kind: PodDisruptionBudget }
+    - { group: rbac.authorization.k8s.io, kind: Role }
+    - { group: rbac.authorization.k8s.io, kind: RoleBinding }
+    - { group: monitoring.coreos.com, kind: ServiceMonitor }
+    - { group: monitoring.coreos.com, kind: PrometheusRule }
+  roles:
+    # Il team applicativo può sincronizzare dev, ma prod solo in lettura.
+    - name: developer
+      description: Team Online Boutique
+      groups:
+        - boutique-team
+      policies:
+        - p, proj:online-boutique:developer, applications, get, online-boutique/*, allow
+        - p, proj:online-boutique:developer, applications, sync, online-boutique/online-boutique-dev, allow

@@ -1,0 +1,10 @@
+# Le Application dell'app. Vengono create dalla root app (bootstrap/root-app.yaml)
+# oppure a mano: kubectl apply -k platform/argocd
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: argocd
+resources:
+  - appproject.yaml
+  - application-dev.yaml
+  - application-prod.yaml
+  - application-observability.yaml

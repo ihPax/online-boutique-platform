@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: online-boutique-dev
+  labels:
+    app.kubernetes.io/part-of: online-boutique
+    app.kubernetes.io/environment: dev
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: online-boutique
+  source:
+    repoURL: https://github.com/ihPax/online-boutique-platform.git
+    targetRevision: main
+    path: platform/kustomize/overlays/dev
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: boutique-dev
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 2m
