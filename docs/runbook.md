@@ -124,7 +124,7 @@ kubectl -n $NS describe pod <pod>          # sezione Events in fondo
 | `Pending` + `exceeded quota` (negli eventi del **ReplicaSet**) | ResourceQuota esaurita (es. surge durante un rollout) | `describe resourcequota`; aumentare la quota in Git o ridurre le richieste |
 | `Pending` + `Insufficient cpu/memory` | Nodo pieno | `kubectl describe node`; escalation se il cluster è sottodimensionato |
 | ReplicaSet con `violates PodSecurity "restricted"` | Manifest non conforme (es. manca `seccompProfile`) | Correggere in Git; `policy-check.sh` dovrebbe averlo intercettato in CI |
-| `ImagePullBackOff` / `ErrImagePull` | Tag inesistente, package GHCR privato, registry irraggiungibile | `describe pod` mostra il messaggio esatto; se è un deploy: [Rollback](#rollback) |
+| `ImagePullBackOff` / `ErrImagePull` | Tag inesistente (`not found`), package privato o credenziali (`unauthorized` / `403`), registry irraggiungibile (timeout) | `describe pod` mostra il messaggio esatto; tag inesistente da un deploy: [Rollback](#rollback); `unauthorized`: visibilità del package o `imagePullSecret` |
 | `CreateContainerConfigError` + `secret "redis-auth" not found` | Secret non creato nel namespace | `scripts/create-secrets.sh $NS` |
 | `Running` ma `0/1 Ready` | Readiness fallita: guardare il motivo negli eventi (`Readiness probe failed: ...`) | Log del container; per i servizi gRPC verificare che la porta sia quella della probe |
 
@@ -145,6 +145,7 @@ kubectl -n $NS get pod <pod> -o jsonpath='{.status.containerStatuses[0].lastStat
 | `Error` / 2 + `panic: environment variable "X" not set` | Variabile obbligatoria mancante (il frontend va in panic all'avvio) | Correggere l'overlay |
 | `Error` + `read-only file system` | Il processo scrive su disco con `readOnlyRootFilesystem` | Montare un `emptyDir` sul path, non togliere il vincolo |
 | Liveness killing | La liveness fallisce ripetutamente | `describe pod`; valutare `initialDelaySeconds` o una `startupProbe` |
+| `Error` / 137 senza `OOMKilled` + evento `failed liveness probe` subito dopo l'avvio | L'app è più lenta ad avviarsi della finestra della liveness (caso reale: emailservice, 16 s di avvio contro circa 15 s concessi) | Confrontare l'ora di avvio del container con il log "listening"; aggiungere una `startupProbe`, non allungare la liveness |
 
 ### Ingress
 
@@ -253,7 +254,7 @@ Lo script sostituisce il Secret e riavvia redis-cart e cartservice (Redis legge 
 
 | Scenario | Cosa succede | Dove si vede | Lezione |
 |---|---|---|---|
-| `redis-down` | Redis a 0 repliche | 5xx su `/` e `/cart`, log cartservice con errori di connessione, alert error rate dopo 2 min. I pod del frontend restano Ready. | Readiness superficiale; Argo CD non ripara uno `scale` perché `replicas` non è dichiarato |
+| `redis-down` | Redis a 0 repliche | 5xx su `/` e `/cart`, p95 a circa 5 s (ogni richiesta aspetta il timeout di connessione del client Redis, 5000 ms), log cartservice `RedisConnectionException ... ConnectTimeout`, alert error rate dopo 2 min. Tutti i pod restano Ready. | Readiness superficiale; Argo CD non ripara uno `scale` perché `replicas` non è dichiarato |
 | `cart-network` | NetworkPolicy che isola cartservice | Timeout (`DeadlineExceeded`) nel frontend, latenza p95 in salita, pod tutti Running/Ready | Distinguere timeout da refused; un oggetto extra non gestito da Git non viene rimosso da Argo CD |
 | `drift` | Env del frontend modificata a mano | Application `OutOfSync`, poi `Synced` in pochi secondi; nuovo rollout | selfHeal: lo stato voluto è quello in Git |
 | immagine inesistente (via Git) | Commit con tag sbagliato nell'overlay dev | `ImagePullBackOff` sul nuovo pod, il vecchio continua a servire, rollout bloccato | Rolling update sicuro; rollback con `git revert` |

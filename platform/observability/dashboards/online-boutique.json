@@ -2,7 +2,7 @@
   "title": "Online Boutique",
   "uid": "online-boutique",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "tags": [
     "online-boutique",
@@ -78,7 +78,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(frontend_http_requests_total{namespace=\"$namespace\"}[5m]))",
+          "expr": "sum(rate(frontend_http_requests_total{namespace=\"$namespace\"}[5m])) or vector(0)",
           "legendFormat": "",
           "datasource": {
             "type": "prometheus",
@@ -120,7 +120,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(frontend_http_requests_total{namespace=\"$namespace\",code=~\"5..\"}[5m])) / sum(rate(frontend_http_requests_total{namespace=\"$namespace\"}[5m]))",
+          "expr": "(sum(rate(frontend_http_requests_total{namespace=\"$namespace\",code=~\"5..\"}[5m])) or vector(0)) / sum(rate(frontend_http_requests_total{namespace=\"$namespace\"}[5m])) or vector(0)",
           "legendFormat": "",
           "datasource": {
             "type": "prometheus",
@@ -162,7 +162,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "histogram_quantile(0.95, sum by (le) (rate(frontend_http_request_duration_seconds_bucket{namespace=\"$namespace\"}[5m])))",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(frontend_http_request_duration_seconds_bucket{namespace=\"$namespace\"}[5m]))) or vector(0)",
           "legendFormat": "",
           "datasource": {
             "type": "prometheus",
@@ -204,7 +204,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(increase(frontend_orders_placed_total{namespace=\"$namespace\"}[1h]))",
+          "expr": "sum(increase(frontend_orders_placed_total{namespace=\"$namespace\"}[1h])) or vector(0)",
           "legendFormat": "",
           "datasource": {
             "type": "prometheus",

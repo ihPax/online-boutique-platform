@@ -5,7 +5,6 @@
 | Strumento | Uso |
 |---|---|
 | Claude (Anthropic), modalità agente su claude.ai, con shell, git, Go e strumenti Kubernetes in una sandbox | Analisi del codice upstream, scrittura di manifest, script, workflow e documentazione, verifica locale (build, test, render, lint) |
-| _da completare: eventuali altri strumenti (Copilot nell'IDE, ecc.)_ | |
 
 La sandbox non ha accesso al cluster né a Docker: tutto ciò che riguarda il cluster è stato verificato da me sul k3s di casa (sezione [Verifiche sul cluster](#verifiche-sul-cluster)).
 
@@ -64,18 +63,18 @@ La sandbox non ha accesso al cluster né a Docker: tutto ciò che riguarda il cl
 - **Verifica**: metriche lette da `/metrics` dopo le richieste di prova (`code="500"` presente, `/metrics` assente sulla porta 8080).
 - **Valore**: un limite dell'applicazione trasformato in un caso di diagnosi documentato.
 
-### Caso 2: troubleshooting sul cluster
+### Caso 2: emailservice in CrashLoopBackOff (sul cluster)
 
-_Da completare con un caso reale emerso durante il deploy sul k3s: errore osservato (evento, log o metrica), cosa ho chiesto all'AI, ipotesi proposte, quale era corretta, come l'ho verificato, quanto tempo ha fatto risparmiare._
+Al primo deploy di dev e prod, `emailservice` è andato in `CrashLoopBackOff` in prod e ha avuto 2 restart in dev.
 
 | Campo | |
 |---|---|
-| Sintomo | |
-| Evidenze fornite all'AI (senza segreti) | |
-| Ipotesi proposte | |
-| Verifica fatta | |
-| Causa reale e correzione | |
-| Valore | |
+| Sintomo | `boutique-prod/emailservice` 0/1 `CrashLoopBackOff`, 7 restart; Application `online-boutique-prod` ferma su `Progressing` |
+| Evidenze fornite all'AI (senza segreti) | `lastState.terminated` (`exitCode 137`, `reason: Error`), log del container precedente, eventi del pod (`failed liveness probe, will be restarted`; `failed to connect service ... within 1s`) |
+| Ipotesi proposte | 1) OOM; 2) NetworkPolicy che blocca la probe del kubelet; 3) avvio più lento della finestra concessa dalla liveness |
+| Verifica fatta | 137 senza `OOMKilled` esclude l'OOM (è il SIGKILL del kubelet). Gli altri servizi gRPC con le stesse NetworkPolicy passano le probe: esclusa la rete. Tempi: container avviato alle 13:19:45, log `listening on port: 8080` alle 13:20:01 (16 s), ucciso alle 13:20:02. La probe upstream (`periodSeconds: 5`, 3 fallimenti, nessun `initialDelaySeconds`, timeout 1 s) concede circa 15 s. In più 24 pod partivano insieme sotto il limite di 200m CPU |
+| Causa reale e correzione | Avvio lento sotto limite CPU. Aggiunta una `startupProbe` (fino a 2 minuti) e timeout di 3 s su liveness e readiness, come patch nella base (`patches/emailservice-probes.yaml`). Dopo il sync: nuovo pod 1/1, 0 restart; prod `Healthy` |
+| Valore | Causa isolata in pochi minuti ragionando sulle evidenze invece di provare a caso (es. alzare memoria o rimuovere la NetworkPolicy, che non avrebbero risolto). La correzione è minima, in Git e vale per entrambi gli ambienti |
 
 ## 4. Documentazione e demo
 
@@ -87,25 +86,29 @@ L'AI ha prodotto la prima stesura di README, architecture, runbook, demo e valut
 
 ## Verifiche sul cluster
 
-_Da completare dopo il deploy sul k3s._
+Eseguite il 28/10/2026 sul k3s dell'homelab (single node, k3s v1.35, Traefik, kube-prometheus-stack, Argo CD 3.4).
 
 | Verifica | Esito | Note |
 |---|---|---|
-| Application dev e prod `Synced/Healthy` | | |
-| Pod ammessi da PSA `restricted` | | |
-| Probe gRPC/HTTP funzionanti con le NetworkPolicy (kube-router di k3s) | | |
-| Redis con password, cartservice connesso | | |
-| Ingress Traefik + certificato cert-manager | | |
-| ServiceMonitor e regole caricate da Prometheus (label `release`) | | |
-| Dashboard Grafana caricata dal sidecar | | |
-| `smoke-test.sh` dev e prod | | |
-| Build CI, push GHCR, commit del tag, rollout | | |
-| Scenari `redis-down`, `cart-network`, `drift`, immagine errata | | |
-| Rollback con `git revert` | | |
-| PoC Krateo | | |
+| Application dev, prod, observability `Synced/Healthy` | OK | Prod `Healthy` dopo il fix di emailservice (caso 2) |
+| Pod ammessi da PSA `restricted` | OK | 12 deployment in dev, 11 + HPA in prod, nessun rifiuto |
+| Probe gRPC/HTTP con le NetworkPolicy (kube-router di k3s) | OK | Unico problema delle probe: avvio lento di emailservice, non la rete |
+| Redis con password, cartservice connesso | OK | Smoke test con carrello e checkout verdi |
+| Ingress Traefik + certificato cert-manager | OK | `200` su dev e prod via NodePort 30443, Certificate `True` |
+| ServiceMonitor e regole caricate da Prometheus | OK | Target frontend dev `up`; gruppi `online-boutique.*` caricati |
+| Dashboard Grafana caricata dal sidecar | OK | Traffico del load generator visibile; riquadri statistici corretti per mostrare 0 invece di "No data" |
+| `smoke-test.sh` dev | OK | 8/8 |
+| Build CI, push GHCR, commit del tag, rollout dev | OK | `sha-a1b745d` |
+| Promozione in prod via PR | OK | PR #1, rollout con `maxUnavailable: 0` |
+| Scenario `redis-down` | OK | 5xx all'11%, p95 a 5 s (timeout di connessione del client Redis), pod tutti Ready, Argo CD `Synced`. Diagnosi dashboard → pod → frontend → cartservice → Redis |
+| Scenario immagine inesistente + rollback `git revert` | OK | Nuovo pod `ImagePullBackOff` (`not found`), pod vecchio sempre `Running`, smoke test 8/8 durante il guasto; revert e rollout completato senza disservizio |
+| Scenari `cart-network` e `drift` | Da provare | |
+| `smoke-test.sh` prod | Da provare | |
+| `bootstrap-local.sh` su k3d | Da provare | |
+| PoC Krateo | Non eseguita | Valutazione e blueprint in [krateo.md](krateo.md) |
 
 ## Limiti riscontrati
 
 - L'AI non vede il cluster: tutto ciò che dipende dall'ambiente (CNI, nome della release Prometheus, Traefik) resta un'ipotesi fino alla verifica.
 - La memoria del modello su versioni e API recenti non è affidabile: va sempre confrontata con la fonte.
-- La documentazione prodotta tende a essere completa ma lunga: l'ho asciugata dove non aggiungeva informazioni operative.
+- La documentazione prodotta tende a essere completa ma lunga: va riletta e asciugata dove non aggiunge informazioni operative.

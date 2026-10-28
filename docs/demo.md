@@ -106,11 +106,15 @@ Se c'è tempo: `cart-network` (timeout invece di errori immediati) o `drift` (Ar
 Guasto introdotto da un deploy, poi rollback GitOps:
 
 ```bash
-cd platform/kustomize/overlays/dev
-kustomize edit set image us-central1-docker.pkg.dev/online-boutique-ci/microservices-demo/frontend=ghcr.io/ihpax/online-boutique-platform/frontend:sha-nonexist
-cd - && git commit -am "dev: tag sbagliato" && git push
+grep newTag platform/kustomize/overlays/dev/kustomization.yaml     # tag attuale, es. sha-a1b745d
+sed -i 's/newTag: sha-a1b745d/newTag: sha-nonexist/' platform/kustomize/overlays/dev/kustomization.yaml
+git commit -am "deploy(dev): frontend sha-nonexist" && git push
+kubectl -n argocd annotate application $APP argocd.argoproj.io/refresh=hard --overwrite
 kubectl -n $NS get pods -l app=frontend -w        # nuovo pod in ImagePullBackOff, il vecchio serve ancora
+kubectl -n $NS describe pod -l app=frontend | grep -i -A2 'failed to pull'   # "not found": è il tag
+scripts/smoke-test.sh $NS                          # 8/8: nessun disservizio
 git revert --no-edit HEAD && git push
+kubectl -n argocd annotate application $APP argocd.argoproj.io/refresh=hard --overwrite
 kubectl -n $NS rollout status deploy/frontend
 ```
 
