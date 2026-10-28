@@ -1,0 +1,9 @@
+apiVersion: v2
+name: online-boutique-env
+description: >-
+  Golden path per un ambiente Online Boutique: crea l'Application Argo CD che
+  rilascia l'overlay scelto, con namespace, ingress, owner e tier parametrici.
+  Pensato per essere registrato in Krateo come CompositionDefinition.
+type: application
+version: 0.1.0
+appVersion: "v0.10.7"

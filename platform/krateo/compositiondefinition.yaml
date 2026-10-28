@@ -1,0 +1,13 @@
+# Registra il blueprint in Krateo: core-provider genera la CRD
+# onlineboutiqueenvs.composition.krateo.io (versione v0-1-0) dal values.schema.json
+# e avvia un composition-dynamic-controller dedicato.
+# Il chart va prima pubblicato su un registry OCI (scripts/krateo-poc.sh).
+apiVersion: core.krateo.io/v1alpha1
+kind: CompositionDefinition
+metadata:
+  name: online-boutique-env
+  namespace: krateo-system
+spec:
+  chart:
+    url: oci://ghcr.io/ihpax/charts/online-boutique-env
+    version: "0.1.0"

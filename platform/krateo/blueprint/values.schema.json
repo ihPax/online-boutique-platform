@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "OnlineBoutiqueEnv",
+  "description": "Ambiente Online Boutique in self-service",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "environment", "namespace", "owner", "tier", "ingress"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Nome del servizio (DNS-1123)",
+      "pattern": "^[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+      "maxLength": 40
+    },
+    "environment": {
+      "type": "string",
+      "description": "Overlay di partenza",
+      "enum": ["dev", "prod"],
+      "default": "dev"
+    },
+    "namespace": {
+      "type": "string",
+      "description": "Namespace di destinazione, deve iniziare con boutique-",
+      "pattern": "^boutique-[a-z0-9]([-a-z0-9]*[a-z0-9])?$",
+      "maxLength": 50
+    },
+    "owner": {
+      "type": "string",
+      "description": "Team o persona responsabile (finisce in label e annotation)",
+      "minLength": 3
+    },
+    "tier": {
+      "type": "string",
+      "description": "Taglia dell'ambiente: bronze (piccolo), silver, gold",
+      "enum": ["bronze", "silver", "gold"],
+      "default": "bronze"
+    },
+    "ingress": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["host"],
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Hostname pubblicato dall'Ingress",
+          "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$"
+        }
+      }
+    },
+    "repository": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "url": { "type": "string", "default": "https://github.com/ihPax/online-boutique-platform.git" },
+        "revision": { "type": "string", "default": "main" }
+      }
+    },
+    "argocd": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "namespace": { "type": "string", "default": "argocd" },
+        "project": { "type": "string", "default": "online-boutique" }
+      }
+    }
+  }
+}

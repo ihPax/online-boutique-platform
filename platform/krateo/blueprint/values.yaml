@@ -1,0 +1,17 @@
+# Nome logico del servizio: diventa il nome dell'Application Argo CD.
+name: boutique-team-a
+# Overlay di partenza: dev (con load generator) o prod (HPA, PDB, niente traffico sintetico).
+environment: dev
+# Namespace di destinazione. Deve iniziare con "boutique-" (vincolo dell'AppProject).
+namespace: boutique-team-a
+owner: team-a@example.com
+# Taglia dell'ambiente: decide la ResourceQuota.
+tier: bronze
+ingress:
+  host: team-a.boutique.homelab.local
+repository:
+  url: https://github.com/ihPax/online-boutique-platform.git
+  revision: main
+argocd:
+  namespace: argocd
+  project: online-boutique

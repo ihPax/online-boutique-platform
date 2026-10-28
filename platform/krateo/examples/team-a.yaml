@@ -1,0 +1,14 @@
+# Quello che un team consumer compila (a mano o dal form del portale Krateo).
+apiVersion: composition.krateo.io/v0-1-0
+kind: OnlineBoutiqueEnv
+metadata:
+  name: boutique-team-a
+  namespace: krateo-system
+spec:
+  name: boutique-team-a
+  environment: dev
+  namespace: boutique-team-a
+  owner: team-a@example.com
+  tier: bronze
+  ingress:
+    host: team-a.boutique.homelab.local

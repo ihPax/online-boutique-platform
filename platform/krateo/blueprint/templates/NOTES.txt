@@ -1,0 +1,5 @@
+Ambiente {{ .Values.name }} ({{ .Values.environment }}, tier {{ .Values.tier }}) richiesto.
+Argo CD: Application {{ .Values.argocd.namespace }}/{{ .Values.name }} -> namespace {{ .Values.namespace }}
+URL: https://{{ .Values.ingress.host }}
+Prima del primo sync serve il Secret redis-auth nel namespace:
+  scripts/create-secrets.sh {{ .Values.namespace }}

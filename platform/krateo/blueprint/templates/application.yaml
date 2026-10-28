@@ -1,0 +1,64 @@
+{{- $q := include "obe.quota" . | fromJson }}
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ .Values.name }}
+  namespace: {{ .Values.argocd.namespace }}
+  labels:
+    app.kubernetes.io/part-of: online-boutique
+    app.kubernetes.io/environment: {{ .Values.environment }}
+    platform.homelab/tier: {{ .Values.tier }}
+  annotations:
+    platform.homelab/owner: {{ .Values.owner | quote }}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: {{ .Values.argocd.project }}
+  source:
+    repoURL: {{ .Values.repository.url }}
+    targetRevision: {{ .Values.repository.revision }}
+    path: platform/kustomize/overlays/{{ .Values.environment }}
+    kustomize:
+      namespace: {{ .Values.namespace }}
+      labelWithoutSelector: true
+      commonLabels:
+        platform.homelab/service: {{ .Values.name }}
+        platform.homelab/tier: {{ .Values.tier }}
+      commonAnnotations:
+        platform.homelab/owner: {{ .Values.owner | quote }}
+      patches:
+        - target:
+            kind: Ingress
+            name: frontend
+          patch: |-
+            - op: replace
+              path: /spec/rules/0/host
+              value: {{ .Values.ingress.host }}
+            - op: replace
+              path: /spec/tls/0/hosts/0
+              value: {{ .Values.ingress.host }}
+        - target:
+            kind: ResourceQuota
+            name: environment-quota
+          patch: |-
+            - op: replace
+              path: /spec/hard/requests.cpu
+              value: {{ $q.reqCpu | quote }}
+            - op: replace
+              path: /spec/hard/requests.memory
+              value: {{ $q.reqMem }}
+            - op: replace
+              path: /spec/hard/limits.cpu
+              value: {{ $q.limCpu | quote }}
+            - op: replace
+              path: /spec/hard/limits.memory
+              value: {{ $q.limMem }}
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {{ .Values.namespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
