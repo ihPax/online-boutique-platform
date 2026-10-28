@@ -74,7 +74,7 @@ Volutamente **non** esposti: immagini (le decide la CI), risorse dei singoli con
 |---|---|---|
 | **Blueprint** (chart Helm + schema) | Fatto e validato in CI: `helm lint`, `helm template`, kubeconform sull'Application, schema che rifiuta valori fuori enum/pattern | Il golden path è definibile e vincolabile anche senza Krateo |
 | **Simulazione** dell'istanza | Verificato in locale: l'overlay con namespace, label e patch del blueprint produce l'ambiente atteso (`kustomize build`) | Parametri e patch sono corretti |
-| **PoC Krateo** (`scripts/krateo-poc.sh`) | Script pronto: pubblica il chart su GHCR, installa solo core-provider, registra la definizione, crea l'istanza `team-a`. **Da eseguire sul cluster** | Il passaggio chart → CRD → Application funziona end-to-end |
+| **PoC Krateo** (`scripts/krateo-poc.sh`) | Script pronto: installa solo core-provider, registra la definizione (chart scaricato da `platform/krateo/dist/`), crea l'istanza `team-a`. **Da eseguire sul cluster** | Il passaggio chart → CRD → Application funziona end-to-end |
 | **Adozione reale** | Non fatta | Vedi prerequisiti e rischi |
 
 ## Benefici
@@ -86,7 +86,7 @@ Volutamente **non** esposti: immagini (le decide la CI), risorse dei singoli con
 
 ## Prerequisiti
 
-- Registry OCI per i chart dei blueprint e un ciclo di rilascio dei chart (versionamento semantico: ogni versione è una versione della CRD).
+- Un posto da cui Krateo scarica i chart (repo Helm, registry OCI o URL di un `.tgz`; nella PoC il pacchetto è nel repo) e un ciclo di rilascio dei chart: ogni versione del chart è una versione della CRD.
 - Decidere dove vivono le istanze: nel cluster (create da portale) o in Git (create da PR e applicate da Argo CD). Per restare GitOps consiglio il secondo.
 - Ownership chiara del platform team sui blueprint.
 - Per il portale: autenticazione (OIDC) e mappatura gruppi → permessi.
@@ -107,12 +107,17 @@ Volutamente **non** esposti: immagini (le decide la CI), risorse dei singoli con
 
 ## Eseguire la PoC
 
+Serve `helm` sul punto da cui si lancia lo script. Il chart è già impacchettato in `platform/krateo/dist/`; se si modifica il blueprint va rigenerato con `helm package platform/krateo/blueprint -d platform/krateo/dist` (alzando `version` in `Chart.yaml`).
+
 ```bash
-helm registry login ghcr.io -u <utente>         # token con write:packages
 scripts/krateo-poc.sh
 kubectl get crd onlineboutiqueenvs.composition.krateo.io
 kubectl -n krateo-system get onlineboutiqueenvs
 kubectl -n argocd get application boutique-team-a
+kubectl -n boutique-team-a get pods
+scripts/krateo-poc.sh --cleanup      # rimuove tutto
 ```
 
-Da verificare durante l'esecuzione (non ancora provato su un cluster): nome della condizione di readiness della `CompositionDefinition` usata nello script, permessi del CDC per creare Application nel namespace `argocd`, comportamento con il chart pubblicato come OCI su GHCR.
+Accorgimento emerso preparando la PoC: il controller di Krateo passa al chart alcuni valori propri sotto `global`. Lo schema del blueprint rifiuta i campi non previsti, quindi `global` è dichiarato esplicitamente; senza, l'installazione fallirebbe alla validazione di Helm.
+
+Da verificare durante l'esecuzione: permessi generati per il controller (deve poter creare Application nel namespace `argocd`) e tempi di creazione della CRD.

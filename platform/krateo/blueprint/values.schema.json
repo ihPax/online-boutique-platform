@@ -4,7 +4,14 @@
   "description": "Ambiente Online Boutique in self-service",
   "type": "object",
   "additionalProperties": false,
-  "required": ["name", "environment", "namespace", "owner", "tier", "ingress"],
+  "required": [
+    "name",
+    "environment",
+    "namespace",
+    "owner",
+    "tier",
+    "ingress"
+  ],
   "properties": {
     "name": {
       "type": "string",
@@ -15,7 +22,10 @@
     "environment": {
       "type": "string",
       "description": "Overlay di partenza",
-      "enum": ["dev", "prod"],
+      "enum": [
+        "dev",
+        "prod"
+      ],
       "default": "dev"
     },
     "namespace": {
@@ -32,13 +42,19 @@
     "tier": {
       "type": "string",
       "description": "Taglia dell'ambiente: bronze (piccolo), silver, gold",
-      "enum": ["bronze", "silver", "gold"],
+      "enum": [
+        "bronze",
+        "silver",
+        "gold"
+      ],
       "default": "bronze"
     },
     "ingress": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["host"],
+      "required": [
+        "host"
+      ],
       "properties": {
         "host": {
           "type": "string",
@@ -51,17 +67,33 @@
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "url": { "type": "string", "default": "https://github.com/ihPax/online-boutique-platform.git" },
-        "revision": { "type": "string", "default": "main" }
+        "url": {
+          "type": "string",
+          "default": "https://github.com/ihPax/online-boutique-platform.git"
+        },
+        "revision": {
+          "type": "string",
+          "default": "main"
+        }
       }
     },
     "argocd": {
       "type": "object",
       "additionalProperties": false,
       "properties": {
-        "namespace": { "type": "string", "default": "argocd" },
-        "project": { "type": "string", "default": "online-boutique" }
+        "namespace": {
+          "type": "string",
+          "default": "argocd"
+        },
+        "project": {
+          "type": "string",
+          "default": "online-boutique"
+        }
       }
+    },
+    "global": {
+      "type": "object",
+      "description": "Valori iniettati da Krateo (composition-dynamic-controller): non impostarli a mano"
     }
   }
 }
